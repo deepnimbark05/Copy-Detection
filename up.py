@@ -1,41 +1,40 @@
-
-import fitz
-from PIL import Image
+import fitz  # PyMuPDF
 import io
+from PIL import Image
 
-pdf_document = input("Enter the path to the PDF file: ")
-pdf_document = fitz.open(pdf_document)
-pdf_image = Image.open('sreen.jpg')
+# Get PDF document path from user
+pdf_document_path = input("Enter the path to the PDF file: ")
+pdf_document = fitz.open(pdf_document_path)
 
-# Create a list to store merged images
-image2 = []
+# List to store images of each page
+page_images = []
 
+# Iterate through each page in the PDF
 for page_number in range(pdf_document.page_count):
     page = pdf_document.load_page(page_number)
 
-    images = page.get_images(full=True)
+    # Render the page to an image (pixmap)
+    pix = page.get_pixmap()
 
-    for img_index, img in enumerate(images):
-        xref = img[0]
-        base_image = pdf_document.extract_image(xref)
-        image_data = base_image["image"]
-        image_format = base_image["ext"]
+    # Convert the pixmap to a PIL image
+    pil_image = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+    page_images.append(pil_image)
 
-        pil_image = Image.open(io.BytesIO(image_data))
+# Combine all page images into one
+combined_width = max(image.width for image in page_images)
+combined_height = sum(image.height for image in page_images)
 
-        # Resize the PDF image to match the size of the given image
-        pdf_image_resized = pdf_image.resize(pil_image.size)
+# Create a new image with the combined dimensions
+combined_image = Image.new('RGB', (combined_width, combined_height))
 
-        # Overlay the PDF image on top of the given image
-        merged_image = Image.blend(pil_image, pdf_image_resized, alpha=0.5)  # Adjust the alpha value as needed
+# Paste each page image into the combined image
+y_offset = 0
+for image in page_images:
+    combined_image.paste(image, (0, y_offset))
+    y_offset += image.height
 
-        # Append the merged image to the list
-        image2.append(merged_image)
+# Show the combined image
+combined_image.show(title="Combined PDF Pages")
 
-# Merge all the images into one
-    merged_image = image2[0]
-    for i in range(0, len(image2)):
-        merged_image = Image.blend(merged_image, image2[i], alpha=1.0)
-        merged_image.show()
-
-    pdf_document.close()
+# Close the PDF document
+pdf_document.close()
